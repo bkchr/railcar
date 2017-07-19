@@ -57,41 +57,51 @@ pub fn signal_children(signal: Signal) -> Result<()> {
     Ok(())
 }
 
+const SIGNALS: &[(&[&str], Signal)] = &[
+    ( &[ "HUP", "SIGHUP" ], Signal::SIGHUP ),
+    ( &[ "INT", "SIGINT" ], Signal::SIGINT ),
+    ( &[ "QUIT", "SIGQUIT" ], Signal::SIGQUIT ),
+    ( &[ "ILL" , "SIGILL" ], Signal::SIGILL ),
+    ( &[ "BUS" , "SIGBUS" ], Signal::SIGBUS ),
+    ( &[ "ABRT", "IOT", "SIGABRT", "SIGIOT" ], Signal::SIGABRT),
+    ( &[ "TRAP", "SIGTRAP" ], Signal::SIGTRAP),
+    ( &[ "FPE", "SIGFPE" ], Signal::SIGFPE),
+    ( &[ "KILL", "SIGKILL" ], Signal::SIGKILL),
+    ( &[ "USR1", "SIGUSR1" ], Signal::SIGUSR1),
+    ( &[ "SEGV", "SIGSEGV" ], Signal::SIGSEGV),
+    ( &[ "USR2", "SIGUSR2" ], Signal::SIGUSR2),
+    ( &[ "PIPE", "SIGPIPE" ], Signal::SIGPIPE),
+    ( &[ "ALRM", "SIGALRM" ], Signal::SIGALRM),
+    ( &[ "TERM", "SIGTERM" ], Signal::SIGTERM),
+    #[cfg(all(any(target_os = "linux", target_os = "android", target_os = "emscripten"), not(target_arch = "mips")))]
+    ( &[ "STKFLT", "SIGSTKFLT" ], Signal::SIGSTKFLT),
+    ( &[ "CHLD", "SIGCHLD" ], Signal::SIGCHLD),
+    ( &[ "CONT", "SIGCONT" ], Signal::SIGCONT),
+    ( &[ "STOP", "SIGSTOP" ], Signal::SIGSTOP),
+    ( &[ "TSTP", "SIGTSTP" ], Signal::SIGTSTP),
+    ( &[ "TTIN", "SIGTTIN" ], Signal::SIGTTIN),
+    ( &[ "TTOU", "SIGTTOU" ], Signal::SIGTTOU),
+    ( &[ "URG", "SIGURG" ], Signal::SIGURG),
+    ( &[ "XCPU", "SIGXCPU" ], Signal::SIGXCPU),
+    ( &[ "XFSZ", "SIGXFSZ" ], Signal::SIGXFSZ),
+    ( &[ "VTALRM", "SIGVTALRM" ], Signal::SIGVTALRM),
+    ( &[ "PROF", "SIGPROF" ], Signal::SIGPROF),
+    ( &[ "WINCH", "SIGWINCH" ], Signal::SIGWINCH),
+    ( &[ "IO", "SIGIO" ], Signal::SIGIO),
+    ( &[ "PWR", "SIGPWR" ], Signal::SIGPWR),
+    ( &[ "SYS", "SIGSYS" ], Signal::SIGSYS),
+];
+
 pub fn to_signal(signal: &str) -> Result<Signal> {
-    Ok(match signal {
-        "1" | "HUP" | "SIGHUP" => Signal::SIGHUP,
-        "2" | "INT" | "SIGINT" => Signal::SIGINT,
-        "3" | "QUIT" | "SIGQUIT" => Signal::SIGQUIT,
-        "4" | "ILL" | "SIGILL" => Signal::SIGILL,
-        "5" | "BUS" | "SIGBUS" => Signal::SIGBUS,
-        "6" | "ABRT" | "IOT" | "SIGABRT" | "SIGIOT" => Signal::SIGABRT,
-        "7" | "TRAP" | "SIGTRAP" => Signal::SIGTRAP,
-        "8" | "FPE" | "SIGFPE" => Signal::SIGFPE,
-        "9" | "KILL" | "SIGKILL" => Signal::SIGKILL,
-        "10" | "USR1" | "SIGUSR1" => Signal::SIGUSR1,
-        "11" | "SEGV" | "SIGSEGV" => Signal::SIGSEGV,
-        "12" | "USR2" | "SIGUSR2" => Signal::SIGUSR2,
-        "13" | "PIPE" | "SIGPIPE" => Signal::SIGPIPE,
-        "14" | "ALRM" | "SIGALRM" => Signal::SIGALRM,
-        "15" | "TERM" | "SIGTERM" => Signal::SIGTERM,
-        "16" | "STKFLT" | "SIGSTKFLT" => Signal::SIGSTKFLT,
-        "17" | "CHLD" | "SIGCHLD" => Signal::SIGCHLD,
-        "18" | "CONT" | "SIGCONT" => Signal::SIGCONT,
-        "19" | "STOP" | "SIGSTOP" => Signal::SIGSTOP,
-        "20" | "TSTP" | "SIGTSTP" => Signal::SIGTSTP,
-        "21" | "TTIN" | "SIGTTIN" => Signal::SIGTTIN,
-        "22" | "TTOU" | "SIGTTOU" => Signal::SIGTTOU,
-        "23" | "URG" | "SIGURG" => Signal::SIGURG,
-        "24" | "XCPU" | "SIGXCPU" => Signal::SIGXCPU,
-        "25" | "XFSZ" | "SIGXFSZ" => Signal::SIGXFSZ,
-        "26" | "VTALRM" | "SIGVTALRM" => Signal::SIGVTALRM,
-        "27" | "PROF" | "SIGPROF" => Signal::SIGPROF,
-        "28" | "WINCH" | "SIGWINCH" => Signal::SIGWINCH,
-        "29" | "IO" | "SIGIO" => Signal::SIGIO,
-        "30" | "PWR" | "SIGPWR" => Signal::SIGPWR,
-        "31" | "SYS" | "SIGSYS" => Signal::SIGSYS,
-        _ => bail!{"{} is not a valid signal", signal},
-    })
+    let signal_num = if let Ok(num) = signal.parse::<usize>() { num } else { SIGNALS.len() + 1 };
+
+    for (i, &(signals, sig)) in SIGNALS.iter().enumerate() {
+        if signals.contains(&signal) || i + 1 == signal_num {
+            return Ok(sig);
+        }
+    }
+
+    bail!("{} is not a valid signal", signal)
 }
 
 
@@ -129,4 +139,28 @@ pub fn wait_for_signal() -> Result<Signal> {
     let result = s.wait()?;
     s.thread_unblock()?;
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_signal() {
+        assert_eq!(to_signal("1").unwrap(), Signal::SIGHUP);
+        assert_eq!(to_signal("HUP").unwrap(), Signal::SIGHUP);
+        assert_eq!(to_signal("SIGHUP").unwrap(), Signal::SIGHUP);
+
+        assert_eq!(to_signal("6").unwrap(), Signal::SIGABRT);
+        assert_eq!(to_signal("ABRT").unwrap(), Signal::SIGABRT);
+        assert_eq!(to_signal("IOT").unwrap(), Signal::SIGABRT);
+        assert_eq!(to_signal("SIGABRT").unwrap(), Signal::SIGABRT);
+    }
+
+    #[test]
+    fn test_to_signal_fail() {
+        assert!(to_signal("34").is_err());     
+        assert!(to_signal("SIGTESTP").is_err());     
+    }
+
 }

@@ -5,7 +5,7 @@ authors = ["Vishvananda Ishaya Abrams <vish.ishaya@oracle.com>"]
 build = "build.rs"
 
 [dependencies]
-caps = "0.0.1"
+caps = { git="https://github.com/lucab/caps-rs.git", rev="537e49c36c36dfe442f3f1928105965f10edc711" }
 clap = "2.24.1"
 error-chain = "0.10.0"
 lazy_static = "0.2.4"
